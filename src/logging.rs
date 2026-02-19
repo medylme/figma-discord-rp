@@ -26,7 +26,11 @@ impl fmt::Display for LogLevel {
 }
 
 fn print_colored(level: LogLevel, module: &str, message: &str) {
-    let version_str = format!("v{}", VERSION);
+    let version_str = if cfg!(debug_assertions) {
+        "dev".to_string()
+    } else {
+        format!("v{}", VERSION)
+    };
 
     let level_str = match level {
         LogLevel::Debug => format!("{:5}", level).blue().to_string(),
