@@ -18,6 +18,8 @@ use winit::event_loop::EventLoop;
 mod figma;
 use figma::{FigmaState, scan_figma_active_tab};
 
+mod logging;
+
 mod settings;
 mod settings_window;
 use settings::Settings;
@@ -25,14 +27,25 @@ use settings::Settings;
 mod tray;
 use tray::TrayApp;
 
-use crate::figma::{is_figma_focused, is_figma_running};
+mod updater;
+use updater::core::{is_auto_update_enabled, set_auto_update_enabled};
 
-// windows - prevent opening console
+use crate::figma::{is_figma_focused, find_figma_pid};
+
+pub const VERSION: &str = env!("CARGO_PKG_VERSION");
+
 #[cfg(target_os = "windows")]
 fn attach_parent_console() {
-    use windows_sys::Win32::System::Console::{ATTACH_PARENT_PROCESS, AttachConsole};
+    use windows_sys::Win32::System::Console::{
+        ATTACH_PARENT_PROCESS, AttachConsole, SetConsoleCtrlHandler,
+    };
     unsafe {
         AttachConsole(ATTACH_PARENT_PROCESS);
+
+        unsafe extern "system" fn ctrl_handler(_ctrl_type: u32) -> i32 {
+            std::process::exit(1)
+        }
+        SetConsoleCtrlHandler(Some(ctrl_handler), 1);
     }
 }
 
@@ -43,10 +56,20 @@ fn main() {
     #[cfg(target_os = "windows")]
     attach_parent_console();
 
+    set_auto_update_enabled(!std::env::args().any(|a| a == "--no-update"));
+
     if std::env::args().any(|a| a == "--settings") {
         settings_window::run();
         return;
     }
+
+    if is_auto_update_enabled() {
+        updater::install::cleanup_old_binary();
+        let _ = updater::splash::run_startup_update_check();
+    }
+
+    log_info!("main", "Starting figma-discord-rp v{}", VERSION);
+    log_debug!("main", "Auto-update enabled: {}", is_auto_update_enabled());
 
     let running = Arc::new(AtomicBool::new(true));
     let figma_state = Arc::new(RwLock::new(FigmaState::default()));
@@ -60,9 +83,10 @@ fn main() {
         let running = Arc::clone(&running);
         move || {
             while running.load(Ordering::Relaxed) {
-                if !is_figma_running() {
+                let figma_pid = find_figma_pid();
+                if figma_pid.is_none() {
                     if figma_connected.swap(false, Ordering::Relaxed) {
-                        eprintln!("[figma] process not found, disconnecting");
+                        log_warn!("figma", "Process not found, disconnecting");
                         let mut state = figma_state.write().unwrap();
                         *state = FigmaState::default();
                     }
@@ -73,11 +97,14 @@ fn main() {
                 match scan_figma_active_tab() {
                     Ok(new_tab) => {
                         if !figma_connected.swap(true, Ordering::Relaxed) {
-                            println!("[figma] connected");
+                            log_info!("figma", "Connected (pid {})", figma_pid.unwrap());
                         }
                         let mut state = figma_state.write().unwrap();
 
                         if new_tab != state.active_tab {
+                            let title = new_tab.as_ref().and_then(|t| t.title.as_deref()).unwrap_or("None");
+                            let editor = new_tab.as_ref().and_then(|t| t.editor_type.as_ref()).map(|e| e.key()).unwrap_or("none");
+                            log_debug!("figma", "Tab changed: \"{}\" ({})", title, editor);
                             state.active_tab = new_tab;
                         }
                         if is_figma_focused() {
@@ -86,7 +113,7 @@ fn main() {
                     }
                     Err(e) => {
                         if figma_connected.swap(false, Ordering::Relaxed) {
-                            eprintln!("[figma] disconnected: {e}");
+                            log_warn!("figma", "Disconnected: {e}");
                             let mut state = figma_state.write().unwrap();
                             *state = FigmaState::default();
                         }
@@ -113,13 +140,11 @@ fn main() {
                 match client.connect() {
                     Ok(_) => {
                         discord_connected.store(true, Ordering::Relaxed);
-                        println!("[discord] connected");
+                        log_info!("discord", "Connected (pid {})", std::process::id());
                         break;
                     }
                     Err(e) => {
-                        eprintln!(
-                            "[discord] connect failed: {e}, retrying in {RP_UPDATE_RATE_SECONDS}s"
-                        );
+                        log_error!("discord", "Connect failed: {e}, retrying in {RP_UPDATE_RATE_SECONDS}s");
                         thread::sleep(Duration::from_secs(RP_UPDATE_RATE_SECONDS));
                     }
                 }
@@ -178,6 +203,8 @@ fn main() {
                     true => None,
                     false => Some(format!("File: {title}")),
                 };
+                log_debug!("discord", "Setting activity: status={status}, app={app_name}, image={image_url}");
+
                 let assets = activity::Assets::new().large_image(&image_url);
                 let timestamps = activity::Timestamps::new().start(session_start.unwrap());
 
@@ -193,7 +220,7 @@ fn main() {
 
                 if let Err(e) = client.set_activity(activity) {
                     discord_connected.store(false, Ordering::Relaxed);
-                    eprintln!("[discord] failed to set activity: {e}, reconnecting");
+                    log_error!("discord", "Failed to set activity: {e}, reconnecting");
 
                     loop {
                         if !running.load(Ordering::Relaxed) {
@@ -202,13 +229,11 @@ fn main() {
                         match client.reconnect() {
                             Ok(_) => {
                                 discord_connected.store(true, Ordering::Relaxed);
-                                println!("[discord] reconnected");
+                                log_info!("discord", "Reconnected");
                                 break;
                             }
                             Err(e) => {
-                                eprintln!(
-                                    "[discord] reconnect failed: {e}, retrying in {RP_UPDATE_RATE_SECONDS}s"
-                                );
+                                log_error!("discord", "Reconnect failed: {e}, retrying in {RP_UPDATE_RATE_SECONDS}s");
                                 thread::sleep(Duration::from_secs(RP_UPDATE_RATE_SECONDS));
                             }
                         }

@@ -116,12 +116,13 @@ impl FigmaState {
     }
 }
 
-pub fn is_figma_running() -> bool {
+pub fn find_figma_pid() -> Option<u32> {
     let mut sys = System::new();
     sys.refresh_processes_specifics(ProcessesToUpdate::All, true, ProcessRefreshKind::nothing());
     sys.processes()
-        .values()
-        .any(|p: &Process| p.name().to_string_lossy().to_lowercase().contains("figma"))
+        .iter()
+        .find(|(_, p)| p.name().to_string_lossy().to_lowercase().contains("figma"))
+        .map(|(pid, _)| pid.as_u32())
 }
 
 pub fn is_figma_focused() -> bool {

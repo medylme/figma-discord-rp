@@ -7,6 +7,7 @@ on:
 env:
   CARGO_TERM_COLOR: always
   BIN_NAME: figma-discord-rp
+  GITHUB_LATEST_RELEASE_URL: https://api.github.com/repos/${{ github.repository }}/releases/latest
 
 jobs:
   build-linux:
@@ -35,9 +36,8 @@ jobs:
 
       - name: Prepare artifacts
         run: |
-          VERSION="${GITHUB_REF_NAME#v}"
           mkdir -p artifacts
-          cp "target/x86_64-unknown-linux-gnu/release/${BIN_NAME}" "artifacts/${BIN_NAME}-${VERSION}-linux-x86_64"
+          cp "target/x86_64-unknown-linux-gnu/release/${BIN_NAME}" "artifacts/${BIN_NAME}-linux-x86_64"
 
       - uses: actions/upload-artifact@v4
         with:
@@ -70,9 +70,8 @@ jobs:
 
       - name: Prepare artifacts
         run: |
-          VERSION="${GITHUB_REF_NAME#v}"
           mkdir -p artifacts
-          cp "target/x86_64-pc-windows-gnu/release/${BIN_NAME}.exe" "artifacts/${BIN_NAME}-${VERSION}-windows-x86_64.exe"
+          cp "target/x86_64-pc-windows-gnu/release/${BIN_NAME}.exe" "artifacts/${BIN_NAME}-windows-x86_64.exe"
 
       - uses: actions/upload-artifact@v4
         with:
@@ -103,10 +102,9 @@ jobs:
 
       - name: Prepare artifacts
         run: |
-          VERSION="${GITHUB_REF_NAME#v}"
           mkdir -p artifacts
-          cp "target/x86_64-apple-darwin/release/${BIN_NAME}" "artifacts/${BIN_NAME}-${VERSION}-mac-x86_64"
-          cp "target/aarch64-apple-darwin/release/${BIN_NAME}" "artifacts/${BIN_NAME}-${VERSION}-mac-aarch64"
+          cp "target/x86_64-apple-darwin/release/${BIN_NAME}" "artifacts/${BIN_NAME}-mac-x86_64"
+          cp "target/aarch64-apple-darwin/release/${BIN_NAME}" "artifacts/${BIN_NAME}-mac-aarch64"
 
       - uses: actions/upload-artifact@v4
         with:

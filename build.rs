@@ -14,6 +14,10 @@ fn main() {
         }
     }
 
+    if env::var("GITHUB_LATEST_RELEASE_URL").is_err() {
+        println!("cargo:warning=GITHUB_LATEST_RELEASE_URL not set, auto-updater will be disabled");
+    }
+
     if env::var_os("CARGO_CFG_WINDOWS").is_some() {
         let _ = WindowsResource::new()
             .set_icon("assets/favicon.ico")
@@ -21,4 +25,5 @@ fn main() {
     }
 
     println!("cargo:rerun-if-changed=.env");
+    println!("cargo:rerun-if-env-changed=GITHUB_LATEST_RELEASE_URL");
 }

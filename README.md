@@ -32,6 +32,7 @@ Create a `.env` file with your [Discord application](https://discord.com/develop
 
 ```
 DISCORD_APP_ID=your_app_id_here
+GITHUB_LATEST_RELEASE_URL=https://api.github.com/repos/.../releases/latest    # optional, for auto-updater
 ```
 
 Then run the application:

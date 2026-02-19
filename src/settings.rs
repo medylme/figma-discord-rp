@@ -1,6 +1,8 @@
 use serde::{Deserialize, Serialize};
 use std::{collections::HashMap, fs, path::PathBuf};
 
+use crate::log_debug;
+
 pub const FALLBACK_IMAGE: &str = "defaulticon";
 
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
@@ -88,9 +90,13 @@ impl Settings {
 
     pub fn load() -> Self {
         let path = Self::path();
+        log_debug!("settings", "Loading from {}", path.display());
         match fs::read_to_string(&path) {
             Ok(data) => serde_json::from_str(&data).unwrap_or_default(),
-            Err(_) => Self::default(),
+            Err(_) => {
+                log_debug!("settings", "No settings file found, using defaults");
+                Self::default()
+            }
         }
     }
 
@@ -101,6 +107,7 @@ impl Settings {
         }
         if let Ok(data) = serde_json::to_string_pretty(self) {
             let _ = fs::write(&path, data);
+            log_debug!("settings", "Saved to {}", path.display());
         }
     }
 }
