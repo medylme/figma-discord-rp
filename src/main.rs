@@ -25,7 +25,7 @@ use settings::Settings;
 mod tray;
 use tray::TrayApp;
 
-use crate::figma::is_figma_focused;
+use crate::figma::{is_figma_focused, is_figma_running};
 
 // windows - prevent opening console
 #[cfg(target_os = "windows")]
@@ -60,6 +60,16 @@ fn main() {
         let running = Arc::clone(&running);
         move || {
             while running.load(Ordering::Relaxed) {
+                if !is_figma_running() {
+                    if figma_connected.swap(false, Ordering::Relaxed) {
+                        eprintln!("[figma] process not found, disconnecting");
+                        let mut state = figma_state.write().unwrap();
+                        *state = FigmaState::default();
+                    }
+                    thread::sleep(Duration::from_secs(FIGMA_POLLING_RATE_SECONDS));
+                    continue;
+                }
+
                 match scan_figma_active_tab() {
                     Ok(new_tab) => {
                         if !figma_connected.swap(true, Ordering::Relaxed) {
@@ -144,8 +154,8 @@ fn main() {
                     let disable_idle = settings.read().unwrap().disable_idle;
                     let title = figma
                         .active_tab
-                        .title
-                        .clone()
+                        .as_ref()
+                        .and_then(|t| t.title.clone())
                         .unwrap_or_else(|| "Unknown".to_string());
                     let (status, state_key) = if figma.is_idle() && !disable_idle {
                         ("Idle".to_string(), "idle".to_string())

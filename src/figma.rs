@@ -1,6 +1,7 @@
 use anyhow::{Result, anyhow};
 use serde::Deserialize;
 use std::{fmt, fs, path::PathBuf, time::Instant};
+use sysinfo::{Process, ProcessRefreshKind, ProcessesToUpdate, System};
 
 pub const IDLE_THRESHOLD_SECONDS: u64 = 300;
 
@@ -80,7 +81,7 @@ pub struct FigmaTab {
 
 #[derive(Clone, Debug, Default)]
 pub struct FigmaState {
-    pub active_tab: FigmaTab,
+    pub active_tab: Option<FigmaTab>,
     pub last_focused_at: Option<Instant>,
 }
 
@@ -93,20 +94,34 @@ impl FigmaState {
     }
 
     pub fn state_key(&self) -> &'static str {
-        self.active_tab
-            .editor_type
-            .as_ref()
-            .unwrap_or(&EditorType::default())
-            .key()
+        match &self.active_tab {
+            None => "browsing",
+            Some(tab) => tab
+                .editor_type
+                .as_ref()
+                .unwrap_or(&EditorType::default())
+                .key(),
+        }
     }
 
     pub fn status(&self) -> String {
-        self.active_tab
-            .editor_type
-            .as_ref()
-            .unwrap_or(&EditorType::default())
-            .to_string()
+        match &self.active_tab {
+            None => "Browsing".to_string(),
+            Some(tab) => tab
+                .editor_type
+                .as_ref()
+                .unwrap_or(&EditorType::default())
+                .to_string(),
+        }
     }
+}
+
+pub fn is_figma_running() -> bool {
+    let mut sys = System::new();
+    sys.refresh_processes_specifics(ProcessesToUpdate::All, true, ProcessRefreshKind::new());
+    sys.processes()
+        .values()
+        .any(|p: &Process| p.name().to_string_lossy().to_lowercase().contains("figma"))
 }
 
 pub fn is_figma_focused() -> bool {
@@ -143,7 +158,7 @@ fn get_figma_settings_path() -> Result<PathBuf> {
     }
 }
 
-pub fn scan_figma_active_tab() -> Result<FigmaTab> {
+pub fn scan_figma_active_tab() -> Result<Option<FigmaTab>> {
     let path = get_figma_settings_path()?;
 
     let raw =
@@ -152,12 +167,13 @@ pub fn scan_figma_active_tab() -> Result<FigmaTab> {
     let settings: FigmaSettings =
         serde_json::from_str(&raw).map_err(|e| anyhow!("failed to parse Figma settings: {}", e))?;
 
-    settings
+    let tab = settings
         .windows
-        .ok_or_else(|| anyhow!("no windows found in Figma settings"))?
+        .unwrap_or_default()
         .iter()
         .flat_map(|w| w.tabs.iter().flatten())
         .max_by_key(|t| t.last_viewed_at)
-        .cloned()
-        .ok_or_else(|| anyhow!("no active tab found in Figma settings"))
+        .cloned();
+
+    Ok(tab)
 }
