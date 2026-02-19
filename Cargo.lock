@@ -1311,6 +1311,7 @@ dependencies = [
  "muda",
  "serde",
  "serde_json",
+ "sysinfo",
  "tray-icon",
  "windows-sys 0.61.2",
  "winit",
@@ -3565,6 +3566,15 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn 2.0.116",
+]
+
+[[package]]
+name = "sysinfo"
+version = "0.38.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1efc19935b4b66baa6f654ac7924c192f55b175c00a7ab72410fc24284dacda8"
+dependencies = [
+ "libc",
 ]
 
 [[package]]
