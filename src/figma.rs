@@ -118,7 +118,7 @@ impl FigmaState {
 
 pub fn is_figma_running() -> bool {
     let mut sys = System::new();
-    sys.refresh_processes_specifics(ProcessesToUpdate::All, true, ProcessRefreshKind::new());
+    sys.refresh_processes_specifics(ProcessesToUpdate::All, true, ProcessRefreshKind::nothing());
     sys.processes()
         .values()
         .any(|p: &Process| p.name().to_string_lossy().to_lowercase().contains("figma"))
