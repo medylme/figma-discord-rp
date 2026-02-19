@@ -3,12 +3,10 @@ use std::path::Path;
 
 use sha2::{Digest, Sha256};
 
-use crate::VERSION;
-
 use super::core::UpdateError;
 
 pub fn download_file<F>(
-    client: &reqwest::blocking::Client,
+    agent: &ureq::Agent,
     url: &str,
     dest: &Path,
     total_size: u64,
@@ -17,18 +15,19 @@ pub fn download_file<F>(
 where
     F: FnMut(f32),
 {
-    let mut response = client
+    let response = agent
         .get(url)
-        .header("User-Agent", format!("figma-discord-rp/{}", VERSION))
-        .send()?
-        .error_for_status()?;
+        .set("User-Agent", super::user_agent())
+        .call()
+        .map_err(Box::new)?;
 
+    let mut reader = response.into_reader();
     let mut file = std::fs::File::create(dest)?;
     let mut downloaded: u64 = 0;
     let mut buffer = [0u8; 8192];
 
     loop {
-        let bytes_read = response.read(&mut buffer)?;
+        let bytes_read = reader.read(&mut buffer)?;
         if bytes_read == 0 {
             break;
         }

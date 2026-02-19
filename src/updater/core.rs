@@ -11,7 +11,7 @@ static AUTO_UPDATE_ENABLED: OnceLock<bool> = OnceLock::new();
 #[derive(Debug, Error)]
 pub enum UpdateError {
     #[error("Network error: {0}")]
-    Network(#[from] reqwest::Error),
+    Network(#[from] Box<ureq::Error>),
 
     #[error("Failed to parse version: {0}")]
     VersionParse(String),
@@ -63,9 +63,7 @@ pub fn current_version() -> Result<semver::Version, UpdateError> {
     parse_version(VERSION)
 }
 
-pub fn check_for_updates(
-    client: &reqwest::blocking::Client,
-) -> Result<Option<ReleaseInfo>, UpdateError> {
+pub fn check_for_updates(agent: &ureq::Agent) -> Result<Option<ReleaseInfo>, UpdateError> {
     let Some(url) = GITHUB_LATEST_RELEASE_URL else {
         log_debug!(
             "updater",
@@ -76,17 +74,18 @@ pub fn check_for_updates(
 
     log_debug!("updater", "Checking for updates at {}", url);
 
-    let response = client
+    let response = match agent
         .get(url)
-        .header("User-Agent", format!("figma-discord-rp/{}", VERSION))
-        .header("Accept", "application/vnd.github+json")
-        .send()?;
+        .set("User-Agent", super::user_agent())
+        .set("Accept", "application/vnd.github+json")
+        .call()
+    {
+        Ok(resp) => resp,
+        Err(ureq::Error::Status(404, _)) => return Ok(None),
+        Err(e) => return Err(Box::new(e).into()),
+    };
 
-    if response.status() == reqwest::StatusCode::NOT_FOUND {
-        return Ok(None);
-    }
-
-    let release: GitHubRelease = response.error_for_status()?.json()?;
+    let release: GitHubRelease = response.into_json()?;
 
     if release.draft {
         return Ok(None);

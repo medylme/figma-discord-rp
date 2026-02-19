@@ -63,7 +63,7 @@ fn prompt_open_release(
 pub fn run_startup_update_check() -> Result<(), UpdateError> {
     let owned_console = try_alloc_console();
 
-    let client = reqwest::blocking::Client::new();
+    let agent = ureq::Agent::new();
 
     let spinner = ProgressBar::new_spinner();
     spinner.set_style(
@@ -74,7 +74,7 @@ pub fn run_startup_update_check() -> Result<(), UpdateError> {
     spinner.set_message("Checking for updates...");
     spinner.enable_steady_tick(std::time::Duration::from_millis(100));
 
-    let release = match super::core::check_for_updates(&client) {
+    let release = match super::core::check_for_updates(&agent) {
         Ok(Some(release)) => {
             spinner.finish_and_clear();
             release
@@ -91,7 +91,7 @@ pub fn run_startup_update_check() -> Result<(), UpdateError> {
         }
     };
 
-    let result = perform_update(&client, &release, owned_console);
+    let result = perform_update(&agent, &release, owned_console);
 
     free_console_if_owned(owned_console);
 
@@ -99,7 +99,7 @@ pub fn run_startup_update_check() -> Result<(), UpdateError> {
 }
 
 fn perform_update(
-    client: &reqwest::blocking::Client,
+    agent: &ureq::Agent,
     release: &super::core::ReleaseInfo,
     owned_console: bool,
 ) -> Result<(), UpdateError> {
@@ -118,7 +118,7 @@ fn perform_update(
     let binary_path = temp_dir.path().join(&release.binary_name);
     let checksum_path = temp_dir.path().join(&checksum_name);
 
-    if super::download::download_file(client, &checksum_url, &checksum_path, 0, |_| {}).is_err() {
+    if super::download::download_file(agent, &checksum_url, &checksum_path, 0, |_| {}).is_err() {
         return prompt_open_release(
             &release.version,
             &release.tag_name,
@@ -162,7 +162,7 @@ fn perform_update(
     ));
 
     super::download::download_file(
-        client,
+        agent,
         &release.binary_url,
         &binary_path,
         release.size,
