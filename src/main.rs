@@ -175,8 +175,7 @@ fn main() {
             while running.load(Ordering::Relaxed) {
                 let figma_up = figma_connected.load(Ordering::Relaxed);
 
-                let has_active_tab = figma_up
-                    && figma_state.read().unwrap().active_tab.is_some();
+                let has_active_tab = figma_up && figma_state.read().unwrap().active_tab.is_some();
 
                 if !figma_up || !has_active_tab {
                     let _ = client.clear_activity();
