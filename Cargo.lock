@@ -1299,7 +1299,7 @@ dependencies = [
 
 [[package]]
 name = "figma-discord-rp"
-version = "1.0.0"
+version = "1.0.1"
 dependencies = [
  "active-win-pos-rs",
  "anyhow",
