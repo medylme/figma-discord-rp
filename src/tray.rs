@@ -104,13 +104,14 @@ impl TrayApp {
     fn update_tooltip(&self) {
         let Some(tray) = &self.tray else { return };
         let state = self.figma_state.read().unwrap();
-        let title = state
-            .active_tab
-            .as_ref()
-            .and_then(|t| t.title.as_deref())
-            .unwrap_or("No file open");
-        let status = state.status();
-        let tooltip = format!("Figma Rich Presence — {status}: {title}");
+        let tooltip = match &state.active_tab {
+            None => "Figma Rich Presence — No file open".to_string(),
+            Some(tab) => {
+                let title = tab.title.as_deref().unwrap_or("Unknown");
+                let status = state.status();
+                format!("Figma Rich Presence — {status}: {title}")
+            }
+        };
         let _ = tray.set_tooltip(Some(&tooltip));
     }
 }

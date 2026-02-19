@@ -94,25 +94,19 @@ impl FigmaState {
     }
 
     pub fn state_key(&self) -> &'static str {
-        match &self.active_tab {
-            None => "browsing",
-            Some(tab) => tab
-                .editor_type
-                .as_ref()
-                .unwrap_or(&EditorType::default())
-                .key(),
-        }
+        self.active_tab
+            .as_ref()
+            .and_then(|t| t.editor_type.as_ref())
+            .unwrap_or(&EditorType::default())
+            .key()
     }
 
     pub fn status(&self) -> String {
-        match &self.active_tab {
-            None => "Browsing".to_string(),
-            Some(tab) => tab
-                .editor_type
-                .as_ref()
-                .unwrap_or(&EditorType::default())
-                .to_string(),
-        }
+        self.active_tab
+            .as_ref()
+            .and_then(|t| t.editor_type.as_ref())
+            .unwrap_or(&EditorType::default())
+            .to_string()
     }
 }
 
