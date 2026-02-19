@@ -49,14 +49,14 @@ just build
 
 ## Cross-compiling
 
-for **Linux / WSL** - requires some dev packages:
+For **Linux / WSL** - requires some dev packages:
 
 ```bash
 sudo apt install -y gcc-mingw-w64-x86-64
 rustup target add x86_64-pc-windows-gnu
 ```
 
-for **macOS** - add whichever target isn't available natively:
+For **macOS** - add whichever target isn't available natively:
 
 ```bash
 rustup target add x86_64-apple-darwin    # Intel
