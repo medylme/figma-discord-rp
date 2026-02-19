@@ -30,7 +30,7 @@ use tray::TrayApp;
 mod updater;
 use updater::core::{is_auto_update_enabled, set_auto_update_enabled};
 
-use crate::figma::{is_figma_focused, find_figma_pid};
+use crate::figma::{find_figma_pids, is_figma_focused};
 
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 
@@ -83,8 +83,8 @@ fn main() {
         let running = Arc::clone(&running);
         move || {
             while running.load(Ordering::Relaxed) {
-                let figma_pid = find_figma_pid();
-                if figma_pid.is_none() {
+                let pids = find_figma_pids();
+                if pids.is_empty() {
                     if figma_connected.swap(false, Ordering::Relaxed) {
                         log_warn!("figma", "Process not found, disconnecting");
                         let mut state = figma_state.write().unwrap();
@@ -97,17 +97,32 @@ fn main() {
                 match scan_figma_active_tab() {
                     Ok(new_tab) => {
                         if !figma_connected.swap(true, Ordering::Relaxed) {
-                            log_info!("figma", "Connected (pid {})", figma_pid.unwrap());
+                            log_info!("figma", "Connected");
+                            let pid_list: Vec<String> =
+                                pids.iter().map(|p| p.to_string()).collect();
+                            log_debug!(
+                                "figma",
+                                "{} process(es): {}",
+                                pids.len(),
+                                pid_list.join(", ")
+                            );
                         }
                         let mut state = figma_state.write().unwrap();
 
                         if new_tab != state.active_tab {
-                            let title = new_tab.as_ref().and_then(|t| t.title.as_deref()).unwrap_or("None");
-                            let editor = new_tab.as_ref().and_then(|t| t.editor_type.as_ref()).map(|e| e.key()).unwrap_or("none");
+                            let title = new_tab
+                                .as_ref()
+                                .and_then(|t| t.title.as_deref())
+                                .unwrap_or("None");
+                            let editor = new_tab
+                                .as_ref()
+                                .and_then(|t| t.editor_type.as_ref())
+                                .map(|e| e.key())
+                                .unwrap_or("none");
                             log_debug!("figma", "Tab changed: \"{}\" ({})", title, editor);
                             state.active_tab = new_tab;
                         }
-                        if is_figma_focused() {
+                        if is_figma_focused(&pids) {
                             state.last_focused_at = Some(Instant::now());
                         }
                     }
@@ -140,11 +155,15 @@ fn main() {
                 match client.connect() {
                     Ok(_) => {
                         discord_connected.store(true, Ordering::Relaxed);
-                        log_info!("discord", "Connected (pid {})", std::process::id());
+                        log_info!("discord", "Connected");
+                        log_debug!("discord", "Self pid: {}", std::process::id());
                         break;
                     }
                     Err(e) => {
-                        log_error!("discord", "Connect failed: {e}, retrying in {RP_UPDATE_RATE_SECONDS}s");
+                        log_error!(
+                            "discord",
+                            "Connect failed: {e}, retrying in {RP_UPDATE_RATE_SECONDS}s"
+                        );
                         thread::sleep(Duration::from_secs(RP_UPDATE_RATE_SECONDS));
                     }
                 }
@@ -203,7 +222,10 @@ fn main() {
                     true => None,
                     false => Some(format!("File: {title}")),
                 };
-                log_debug!("discord", "Setting activity: status={status}, app={app_name}, image={image_url}");
+                log_debug!(
+                    "discord",
+                    "Setting activity: status={status}, app={app_name}, image={image_url}"
+                );
 
                 let assets = activity::Assets::new().large_image(&image_url);
                 let timestamps = activity::Timestamps::new().start(session_start.unwrap());
@@ -233,7 +255,10 @@ fn main() {
                                 break;
                             }
                             Err(e) => {
-                                log_error!("discord", "Reconnect failed: {e}, retrying in {RP_UPDATE_RATE_SECONDS}s");
+                                log_error!(
+                                    "discord",
+                                    "Reconnect failed: {e}, retrying in {RP_UPDATE_RATE_SECONDS}s"
+                                );
                                 thread::sleep(Duration::from_secs(RP_UPDATE_RATE_SECONDS));
                             }
                         }

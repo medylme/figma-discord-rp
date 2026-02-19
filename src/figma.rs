@@ -1,7 +1,7 @@
 use anyhow::{Result, anyhow};
 use serde::Deserialize;
 use std::{fmt, fs, path::PathBuf, time::Instant};
-use sysinfo::{Process, ProcessRefreshKind, ProcessesToUpdate, System};
+use sysinfo::{ProcessRefreshKind, ProcessesToUpdate, System};
 
 pub const IDLE_THRESHOLD_SECONDS: u64 = 300;
 
@@ -116,21 +116,19 @@ impl FigmaState {
     }
 }
 
-pub fn find_figma_pid() -> Option<u32> {
+pub fn find_figma_pids() -> Vec<u32> {
     let mut sys = System::new();
     sys.refresh_processes_specifics(ProcessesToUpdate::All, true, ProcessRefreshKind::nothing());
     sys.processes()
         .iter()
-        .find(|(_, p)| p.name().to_string_lossy().to_lowercase().contains("figma"))
+        .filter(|(_, p)| p.name().to_string_lossy().to_lowercase().contains("figma"))
         .map(|(pid, _)| pid.as_u32())
+        .collect()
 }
 
-pub fn is_figma_focused() -> bool {
+pub fn is_figma_focused(pids: &[u32]) -> bool {
     match active_win_pos_rs::get_active_window() {
-        Ok(win) => {
-            win.app_name.to_lowercase().contains("figma")
-                || win.title.to_lowercase().contains("figma")
-        }
+        Ok(win) => pids.contains(&(win.process_id as u32)),
         Err(_) => false,
     }
 }
