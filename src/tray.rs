@@ -25,6 +25,8 @@ fn make_icon() -> tray_icon::Icon {
     tray_icon::Icon::from_rgba(image.into_raw(), width, height).expect("failed to create tray icon")
 }
 
+const TRAY_UPDATE_INTERVAL: Duration = Duration::from_secs(1);
+
 pub struct TrayApp {
     pub running: Arc<AtomicBool>,
     figma_connected: Arc<AtomicBool>,
@@ -37,6 +39,7 @@ pub struct TrayApp {
     discord_status: MenuItem,
     tray: Option<TrayIcon>,
     figma_state: Arc<RwLock<FigmaState>>,
+    last_tray_update: Instant,
 }
 
 impl TrayApp {
@@ -59,6 +62,7 @@ impl TrayApp {
             discord_status: MenuItem::new("Discord: Connecting...", false, None),
             tray: None,
             figma_state,
+            last_tray_update: Instant::now(),
         }
     }
 
@@ -134,7 +138,10 @@ impl ApplicationHandler for TrayApp {
             }
         }
 
-        self.update_status_items();
-        self.update_tooltip();
+        if self.last_tray_update.elapsed() >= TRAY_UPDATE_INTERVAL {
+            self.update_status_items();
+            self.update_tooltip();
+            self.last_tray_update = Instant::now();
+        }
     }
 }
