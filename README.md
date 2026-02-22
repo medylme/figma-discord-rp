@@ -74,8 +74,9 @@ just dist-mac      # macOS   (only macOS)
 The following env vars can optionally be set (or added to `.env`):
 
 ```
-DIST_DIR=/dist       # where release binaries are copied (default: dist)
-TARGET_DIR=/target   # cargo target directory (default: target)
+DIST_DIR=/dist         # where release binaries are copied (default: dist)
+TARGET_DIR=/target     # cargo target directory (default: target)
+SENTRY_DSN=https://... # Sentry error reporting (optional)
 ```
 
 ## Settings

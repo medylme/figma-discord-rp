@@ -51,8 +51,27 @@ fn attach_parent_console() {
 
 const FIGMA_POLLING_RATE_SECONDS: u64 = 5;
 const RP_UPDATE_RATE_SECONDS: u64 = 15;
-
 fn main() {
+    let sentry_dsn = option_env!("SENTRY_DSN");
+    if let Some(dsn) = sentry_dsn {
+        let _guard = sentry::init((
+            dsn,
+            sentry::ClientOptions {
+                release: sentry::release_name!(),
+                environment: Some(std::borrow::Cow::Borrowed(if cfg!(debug_assertions) {
+                    "development"
+                } else {
+                    "production"
+                })),
+                send_default_pii: true,
+                auto_session_tracking: true,
+                session_mode: sentry::SessionMode::Application,
+                attach_stacktrace: true,
+                ..Default::default()
+            },
+        ));
+    }
+
     #[cfg(target_os = "windows")]
     attach_parent_console();
 
@@ -127,6 +146,7 @@ fn main() {
                         }
                     }
                     Err(e) => {
+                        sentry::integrations::anyhow::capture_anyhow(&e);
                         if figma_connected.swap(false, Ordering::Relaxed) {
                             log_warn!("figma", "Disconnected: {e}");
                             let mut state = figma_state.write().unwrap();
@@ -243,6 +263,7 @@ fn main() {
                 }
 
                 if let Err(e) = client.set_activity(activity) {
+                    sentry::capture_error(&e);
                     discord_connected.store(false, Ordering::Relaxed);
                     log_error!("discord", "Failed to set activity: {e}, reconnecting");
 
