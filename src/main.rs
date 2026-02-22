@@ -4,7 +4,6 @@
 )]
 
 use discord_rich_presence::{DiscordIpc, DiscordIpcClient, activity};
-use dotenvy_macro::dotenv;
 use std::{
     sync::{
         Arc, RwLock,
@@ -166,7 +165,7 @@ fn main() {
         let settings = Arc::clone(&settings);
         let running = Arc::clone(&running);
         move || {
-            let mut client = DiscordIpcClient::new(dotenv!("DISCORD_APP_ID"));
+            let mut client = DiscordIpcClient::new(env!("DISCORD_APP_ID"));
 
             loop {
                 if !running.load(Ordering::Relaxed) {
