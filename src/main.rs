@@ -53,8 +53,8 @@ const FIGMA_POLLING_RATE_SECONDS: u64 = 5;
 const RP_UPDATE_RATE_SECONDS: u64 = 15;
 fn main() {
     let sentry_dsn = option_env!("SENTRY_DSN");
-    if let Some(dsn) = sentry_dsn {
-        let _guard = sentry::init((
+    let _guard = sentry_dsn.map(|dsn| {
+        sentry::init((
             dsn,
             sentry::ClientOptions {
                 release: sentry::release_name!(),
@@ -69,8 +69,8 @@ fn main() {
                 attach_stacktrace: true,
                 ..Default::default()
             },
-        ));
-    }
+        ))
+    });
 
     #[cfg(target_os = "windows")]
     attach_parent_console();
