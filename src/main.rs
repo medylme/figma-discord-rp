@@ -50,7 +50,7 @@ fn attach_parent_console() {
 }
 
 const FIGMA_POLLING_RATE_SECONDS: u64 = 5;
-const RP_UPDATE_RATE_SECONDS: u64 = 5; // should be 15 but i don't give a frick!!!!
+const RP_UPDATE_RATE_SECONDS: u64 = 15;
 
 fn main() {
     #[cfg(target_os = "windows")]
