@@ -15,15 +15,33 @@ pub fn open(settings: Arc<RwLock<Settings>>, open_flag: Arc<AtomicBool>) {
     }
 
     thread::spawn(move || {
-        let exe = std::env::current_exe().expect("failed to resolve current exe");
-        match Command::new(exe).arg("--settings").status() {
-            Ok(status) if status.success() => {
+        let exe = match std::env::current_exe() {
+            Ok(p) => p,
+            Err(e) => {
+                eprintln!("[settings] failed to resolve exe: {e}");
+                open_flag.store(false, Ordering::Relaxed);
+                return;
+            }
+        };
+
+        let status: std::io::Result<std::process::ExitStatus> = Command::new(&exe)
+            .arg("--settings")
+            .stdin(std::process::Stdio::null())
+            .stdout(std::process::Stdio::null())
+            .stderr(std::process::Stdio::null())
+            .status();
+
+        match status {
+            Ok(s) => {
                 let reloaded = Settings::load();
                 *settings.write().unwrap() = reloaded;
+                if !s.success() {
+                    eprintln!("[settings] window exited with {s}");
+                }
             }
-            Ok(status) => eprintln!("[settings] window exited with {status}"),
             Err(e) => eprintln!("[settings] failed to spawn window: {e}"),
         }
+
         open_flag.store(false, Ordering::Relaxed);
     });
 }
