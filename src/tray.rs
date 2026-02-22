@@ -67,7 +67,12 @@ impl TrayApp {
     }
 
     fn init_tray(&mut self) {
-        let title = MenuItem::new("Figma Rich Presence", false, None);
+        let title_text = if cfg!(debug_assertions) {
+            "Figma Rich Presence DEBUG".to_string()
+        } else {
+            format!("Figma Rich Presence v{}", crate::VERSION)
+        };
+        let title = MenuItem::new(&title_text, false, None);
         let menu = Menu::new();
         menu.append(&title).unwrap();
         menu.append(&PredefinedMenuItem::separator()).unwrap();
