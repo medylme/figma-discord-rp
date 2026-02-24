@@ -141,13 +141,56 @@ jobs:
       - name: Prepare artifacts
         run: |
           mkdir -p artifacts
-          strip -o "artifacts/${BIN_NAME}-mac-x86_64" "target/x86_64-apple-darwin/release/${BIN_NAME}"
-          strip -o "artifacts/${BIN_NAME}-mac-aarch64" "target/aarch64-apple-darwin/release/${BIN_NAME}"
+
+          # Create a universal binary
+          lipo -create \
+            "target/x86_64-apple-darwin/release/${BIN_NAME}" \
+            "target/aarch64-apple-darwin/release/${BIN_NAME}" \
+            -output "artifacts/${BIN_NAME}-mac-universal"
+          strip "artifacts/${BIN_NAME}-mac-universal"
+
+      - name: Create .app bundle and .dmg
+        run: |
+          APP_DIR="artifacts/${BIN_NAME}.app"
+          mkdir -p "${APP_DIR}/Contents/MacOS"
+          mkdir -p "${APP_DIR}/Contents/Resources"
+
+          cp "artifacts/${BIN_NAME}-mac-universal" "${APP_DIR}/Contents/MacOS/${BIN_NAME}"
+          chmod +x "${APP_DIR}/Contents/MacOS/${BIN_NAME}"
+
+          cat > "${APP_DIR}/Contents/Info.plist" <<EOF
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+            <key>CFBundleExecutable</key>
+            <string>${BIN_NAME}</string>
+            <key>CFBundleIdentifier</key>
+            <string>com.medylme.figma-discord-rp</string>
+            <key>CFBundleName</key>
+            <string>Figma Discord Rich Presence</string>
+            <key>CFBundleVersion</key>
+            <string>${GITHUB_REF_NAME}</string>
+            <key>CFBundleShortVersionString</key>
+            <string>${GITHUB_REF_NAME}</string>
+            <key>LSMinimumSystemVersion</key>
+            <string>11.0</string>
+            <key>LSUIElement</key>
+            <true/>
+          </dict>
+          </plist>
+          EOF
+
+          hdiutil create \
+            -volname "Figma Discord Rich Presence" \
+            -srcfolder "${APP_DIR}" \
+            -ov -format UDZO \
+            "artifacts/${BIN_NAME}-mac.dmg"
 
       - uses: actions/upload-artifact@v4
         with:
           name: binaries-macos
-          path: artifacts/*
+          path: artifacts/${BIN_NAME}-mac.dmg
 
   release:
     needs: [build-linux, build-windows, build-macos]
@@ -182,7 +225,7 @@ jobs:
         working-directory: artifacts
         run: |
           for f in *; do
-            sha256sum "$f" > "$f.sha256"
+            [ -f "$f" ] && sha256sum "$f" > "$f.sha256"
           done
 
       - uses: softprops/action-gh-release@v2
