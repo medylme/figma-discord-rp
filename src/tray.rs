@@ -110,11 +110,11 @@ impl TrayApp {
         let Some(tray) = &self.tray else { return };
         let state = self.figma_state.read().unwrap();
         let tooltip = match &state.active_tab {
-            None => "Figma Rich Presence — No file open".to_string(),
+            None => "Figma Rich Presence: No file open".to_string(),
             Some(tab) => {
                 let title = tab.title.as_deref().unwrap_or("Unknown");
                 let status = state.status();
-                format!("Figma Rich Presence — {status}: {title}")
+                format!("Figma Rich Presence: {status}: {title}")
             }
         };
         let _ = tray.set_tooltip(Some(&tooltip));
